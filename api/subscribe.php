@@ -1,50 +1,48 @@
-<?php
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST');
-header('Access-Control-Allow-Headers: Content-Type');
+const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    exit(json_encode(['error' => 'Method not allowed']));
-}
+const app = express();
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
-$email = $_POST['email'] ?? trim(filter_input(INPUT_POST, 'email', FILTER_SANITIZE_EMAIL));
-if (!$email || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    http_response_code(400);
-    exit(json_encode(['error' => 'Invalid email']));
-}
+// Use environment variables from Vercel
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// TODO: Replace with your cloud MySQL credentials
-// Use PlanetScale (free tier), Railway, or similar
-$host = $_ENV['MYSQL_HOST'] ?? '127.0.0.1';
-$username = $_ENV['MYSQL_USER'] ?? 'root';
-$password = $_ENV['MYSQL_PASSWORD'] ?? 'Lingaraju@123';
-$dbname = $_ENV['MYSQL_DATABASE'] ?? 'ngo_website';
+app.post('/api/subscribe', async (req, res) => {
+  const email = (req.body.email || '').trim();
 
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]);
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return res.status(400).json({ error: 'Invalid email' });
+  }
 
-    // Check if already subscribed
-    $stmt = $pdo->prepare('SELECT id FROM subscribers WHERE email = ?');
-    $stmt->execute([$email]);
-    
-    if ($stmt->fetch()) {
-        http_response_code(409);
-        exit(json_encode(['message' => 'Already subscribed']));
-    }
+  // check duplicate
+  const { data: existing, error: selectError } = await supabase
+    .from('subscribers')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle();
 
-    // Insert new subscriber
-    $stmt = $pdo->prepare('INSERT INTO subscribers (email, subscribed_at) VALUES (?, NOW())');
-    $stmt->execute([$email]);
-    
-    exit(json_encode(['message' => 'Success']));
-    
-} catch (PDOException $e) {
-    http_response_code(500);
-    exit(json_encode(['error' => 'Database error']));
-}
-?>
+  if (selectError) {
+    console.error(selectError);
+    return res.status(500).json({ error: 'DB error' });
+  }
+
+  if (existing) {
+    return res.status(409).json({ message: 'Already subscribed' });
+  }
+
+  const { error: insertError } = await supabase
+    .from('subscribers')
+    .insert([{ email }]);
+
+  if (insertError) {
+    console.error(insertError);
+    return res.status(500).json({ error: 'DB error' });
+  }
+
+  return res.json({ message: 'Success' });
+});
+
+module.exports = app;

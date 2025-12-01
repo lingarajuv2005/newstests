@@ -1,0 +1,24 @@
+{
+  "name": "ling",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lingarajuv2005/newstests.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lingarajuv2005/newstests/issues"
+  },
+  "homepage": "https://github.com/lingarajuv2005/newstests#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
+    "express": "^5.1.0"
+  }
+}
